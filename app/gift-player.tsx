@@ -78,6 +78,7 @@ export default function GiftPlayer() {
     connectionStatus,
     playUri,
     seek,
+    activateElement,
   } = useWebPlayback(accessToken, isPremium)
 
   const [playlist, setPlaylist] = useState<GiftPlaylist | null>(null)
@@ -148,6 +149,7 @@ export default function GiftPlayer() {
     "/placeholder_album.png"
 
   async function playTrack(track: GiftTrack) {
+    activateElement()
     if (!playlist || !playbackReady || !isPremium || switching) return
 
     setSwitching(true)
@@ -164,6 +166,7 @@ export default function GiftPlayer() {
   }
 
   async function togglePlayback() {
+    activateElement()
     if (!playlist || !isPremium || switching) return
 
     if (!playbackState?.item && playlist.tracks[0]) {
