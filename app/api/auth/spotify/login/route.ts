@@ -11,12 +11,13 @@ function getRedirectUri(request: NextRequest) {
   )
 }
 
-// Minimum scopes for the Web Playback SDK plus playback control.
+// Minimum scopes for the Web Playback SDK plus curated playlist access.
 const SCOPES = [
   'user-read-playback-state',
   'user-modify-playback-state',
   'user-read-email',
   'user-read-private',
+  'playlist-read-private',
   'streaming'
 ].join(' ')
 
