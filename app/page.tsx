@@ -1,21 +1,19 @@
 "use client"
 
-import dynamic from 'next/dynamic'
+import dynamic from "next/dynamic"
 
-// Dynamically import the VinylPlayer component with no SSR
-// This prevents issues with browser-only APIs during build
-const VinylPlayer = dynamic(() => import('./vinyl-player'), {
+const GiftPlayer = dynamic(() => import("./gift-player"), {
   ssr: false,
   loading: () => (
-    <div className="fixed inset-0 bg-gradient-to-br from-stone-50 to-stone-100 flex items-center justify-center">
+    <div className="fixed inset-0 grid place-items-center bg-[#efe7d8] text-[#201b18]">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-        <p className="text-gray-600">Loading Vinyl Player...</p>
+        <div className="mx-auto mb-3 h-11 w-11 animate-spin rounded-full border-2 border-[#201b18]/20 border-t-[#201b18]" />
+        <p className="text-sm">Opening the record…</p>
       </div>
     </div>
-  )
+  ),
 })
 
 export default function Page() {
-  return <VinylPlayer />
+  return <GiftPlayer />
 }
