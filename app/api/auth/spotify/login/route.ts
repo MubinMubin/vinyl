@@ -11,33 +11,30 @@ function getRedirectUri(request: NextRequest) {
   )
 }
 
-// Scopes needed for playback control and reading user data
+// Request only the permissions this player actually uses.
 const SCOPES = [
   'user-read-playback-state',
   'user-modify-playback-state',
   'user-read-currently-playing',
   'user-read-recently-played',
-  'user-read-playback-position',
   'user-read-email',
   'user-read-private',
-  'streaming',
-  'app-remote-control'
+  'streaming'
 ].join(' ')
 
 export async function GET(request: NextRequest) {
   if (!CLIENT_ID) {
     return NextResponse.json(
       { error: 'Spotify is not configured yet.' },
-      { status: 503 }
+      { status: 503, headers: { 'Cache-Control': 'no-store' } }
     )
   }
 
   const redirectUri = getRedirectUri(request)
 
-  // Generate cryptographically secure random state for CSRF protection
+  // Cryptographically secure anti-CSRF state.
   const state = randomBytes(32).toString('hex')
 
-  // Build authorization URL
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     response_type: 'code',
@@ -47,14 +44,13 @@ export async function GET(request: NextRequest) {
     show_dialog: 'true'
   })
 
-  const authUrl = `${SPOTIFY_AUTH_URL}?${params.toString()}`
-
-  // Set state in cookie for verification
-  const response = NextResponse.redirect(authUrl)
+  const response = NextResponse.redirect(`${SPOTIFY_AUTH_URL}?${params.toString()}`)
+  response.headers.set('Cache-Control', 'no-store')
   response.cookies.set('spotify_auth_state', state, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
+    path: '/',
     maxAge: 60 * 10
   })
 
