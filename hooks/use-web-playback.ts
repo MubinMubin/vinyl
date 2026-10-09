@@ -145,7 +145,7 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
 
     window.onSpotifyWebPlaybackSDKReady = () => {
       const spotifyPlayer = new window.Spotify.Player({
-        name: 'Vinyl Player',
+        name: 'For Tuuli',
         getOAuthToken: (cb: (token: string) => void) => {
           cb(token)
         },
