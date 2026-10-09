@@ -15,6 +15,7 @@ interface WebPlaybackPlayer {
   getVolume: () => Promise<number>
   setVolume: (volume: number) => Promise<void>
   seek: (position: number) => Promise<void>
+  activateElement: () => Promise<void>
 }
 
 export function useWebPlayback(token: string | null, isPremium: boolean) {
@@ -125,6 +126,14 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
       return false
     }
   }, [isReady])
+
+  const activateElement = useCallback(() => {
+    if (!playerRef.current) return
+    // iOS/mobile browsers require media activation inside a user gesture.
+    void playerRef.current.activateElement().catch((error) => {
+      console.warn('Spotify player activation failed:', error)
+    })
+  }, [])
 
   useEffect(() => {
     if (!isPremium || !token) {
@@ -285,6 +294,7 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
     transferPlayback,
     setVolume,
     getVolume,
-    seek
+    seek,
+    activateElement
   }
 }
