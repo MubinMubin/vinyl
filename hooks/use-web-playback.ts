@@ -148,38 +148,61 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
     setConnectionStatus('loading')
     readyRef.current = false
 
-    const fail = (message: string) => {
+    const report = (event: string, message = '', detail = '') => {
+      void fetch('/api/diagnostics/player', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event,
+          message,
+          detail,
+          secureContext: window.isSecureContext,
+          mediaKeys: 'MediaKeys' in window,
+          visibility: document.visibilityState,
+          userAgent: navigator.userAgent,
+        }),
+      }).catch(() => {})
+    }
+
+    report('effect_start', '', `spotifyGlobal=${!!window.Spotify}`)
+
+    const fail = (message: string, event = 'failure') => {
       if (disposed) return
       console.error(message)
+      report(event, message)
       setSdkError(message)
       setConnectionStatus('error')
       setIsReady(false)
     }
 
     const initialisePlayer = () => {
+      report('sdk_ready_callback', '', `spotifyGlobal=${!!window.Spotify};playerExists=${!!playerRef.current}`)
       if (disposed || !window.Spotify || playerRef.current) return
 
       setConnectionStatus('connecting')
 
+      report('constructing_player')
       const spotifyPlayer = new window.Spotify.Player({
         name: 'For Tuuli',
         getOAuthToken: async (cb: (freshToken: string) => void) => {
           try {
             const response = await fetch('/api/spotify/token', { cache: 'no-store' })
             if (!response.ok) {
-              fail('Spotify session expired. Please sign out and reconnect Spotify.')
+              fail('Spotify session expired. Please sign out and reconnect Spotify.', 'token_fetch_failed')
               return
             }
             const data = await response.json()
+            report('token_callback_success')
             cb(data.token)
           } catch {
-            fail('Could not refresh the Spotify playback token.')
+            fail('Could not refresh the Spotify playback token.', 'token_fetch_exception')
           }
         },
         volume: 0.5
       })
 
       spotifyPlayer.addListener('ready', async ({ device_id }) => {
+        report('ready', '', `device=${String(device_id).slice(0, 12)}`)
         if (disposed) return
         readyRef.current = true
         setDeviceId(device_id)
@@ -189,7 +212,8 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
         await transferPlayback(device_id)
       })
 
-      spotifyPlayer.addListener('not_ready', () => {
+      spotifyPlayer.addListener('not_ready', ({ device_id }) => {
+        report('not_ready', '', `device=${String(device_id || '').slice(0, 12)}`)
         if (disposed) return
         readyRef.current = false
         setIsReady(false)
@@ -197,22 +221,24 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
       })
 
       spotifyPlayer.addListener('initialization_error', ({ message }) => {
-        fail(`Spotify player could not initialise: ${message}`)
+        fail(`Spotify player could not initialise: ${message}`, 'initialization_error')
       })
 
       spotifyPlayer.addListener('authentication_error', ({ message }) => {
-        fail(`Spotify player authentication failed: ${message}. Please reconnect Spotify.`)
+        fail(`Spotify player authentication failed: ${message}. Please reconnect Spotify.`, 'authentication_error')
       })
 
       spotifyPlayer.addListener('account_error', ({ message }) => {
-        fail(`Spotify account cannot use browser playback: ${message}`)
+        fail(`Spotify account cannot use browser playback: ${message}`, 'account_error')
       })
 
       spotifyPlayer.addListener('playback_error', ({ message }) => {
+        report('playback_error', message)
         if (!disposed) setSdkError(`Spotify playback error: ${message}`)
       })
 
       spotifyPlayer.addListener('autoplay_failed', () => {
+        report('autoplay_failed')
         if (!disposed) {
           setSdkError('Your browser blocked automatic playback. Tap a song or the play button to start.')
         }
@@ -228,19 +254,21 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
 
       playerRef.current = spotifyPlayer as any
       setPlayer(spotifyPlayer as any)
+      report('player_constructed')
 
       spotifyPlayer.connect()
         .then((success: boolean) => {
-          if (!success) fail('Spotify browser player could not connect.')
+          report('connect_result', String(success))
+          if (!success) fail('Spotify browser player could not connect.', 'connect_false')
         })
         .catch((error: unknown) => {
           console.error('Spotify SDK connect failed:', error)
-          fail('Spotify browser player could not connect.')
+          fail('Spotify browser player could not connect.', 'connect_exception')
         })
 
       timeoutId = window.setTimeout(() => {
         if (!readyRef.current && !disposed) {
-          fail('Spotify player timed out while connecting. This is usually caused by a blocked Spotify connection or an unsupported browser setting.')
+          fail('Spotify player timed out while connecting. This is usually caused by a blocked Spotify connection or an unsupported browser setting.', 'connect_timeout')
         }
       }, 12000)
     }
@@ -248,19 +276,24 @@ export function useWebPlayback(token: string | null, isPremium: boolean) {
     window.onSpotifyWebPlaybackSDKReady = initialisePlayer
 
     if (window.Spotify) {
+      report('spotify_global_already_present')
       initialisePlayer()
     } else {
       let script = document.querySelector<HTMLScriptElement>('script[src="https://sdk.scdn.co/spotify-player.js"]')
+      report('spotify_global_missing', '', `scriptPresent=${!!script}`)
 
       if (!script) {
         script = document.createElement('script')
         script.src = 'https://sdk.scdn.co/spotify-player.js'
         script.async = true
         script.dataset.tuuliSpotifySdk = 'true'
-        script.onerror = () => fail('Spotify playback library could not be loaded.')
+        script.onload = () => report('sdk_script_loaded')
+        script.onerror = () => fail('Spotify playback library could not be loaded.', 'sdk_script_error')
         document.body.appendChild(script)
+        report('sdk_script_appended')
       } else {
-        script.onerror = () => fail('Spotify playback library could not be loaded.')
+        script.onload = () => report('sdk_existing_script_loaded')
+        script.onerror = () => fail('Spotify playback library could not be loaded.', 'sdk_script_error')
       }
     }
 
