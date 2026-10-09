@@ -74,6 +74,8 @@ export default function GiftPlayer() {
 
   const {
     isReady: playbackReady,
+    sdkError,
+    connectionStatus,
     playUri,
     seek,
   } = useWebPlayback(accessToken, isPremium)
@@ -306,7 +308,13 @@ export default function GiftPlayer() {
             <div className={styles.nowPlaying}>
               <div className={styles.nowPlayingMeta}>
                 <span className={styles.eyebrow}>
-                  {isPlaying ? "NOW PLAYING" : playbackReady ? "READY TO PLAY" : "CONNECTING PLAYER"}
+                  {isPlaying
+                    ? "NOW PLAYING"
+                    : playbackReady
+                      ? "READY TO PLAY"
+                      : connectionStatus === "error"
+                        ? "PLAYER NEEDS ATTENTION"
+                        : "CONNECTING PLAYER"}
                 </span>
                 <h1>{activeTrack?.name || playlist.name}</h1>
                 <p>{activeTrack?.artists?.map((artist) => artist.name).join(", ")}</p>
@@ -364,10 +372,11 @@ export default function GiftPlayer() {
                 </div>
               )}
 
-              {isPremium && !playbackReady && (
+              {isPremium && !playbackReady && !sdkError && (
                 <div className={styles.notice}>Connecting the private Spotify player…</div>
               )}
 
+              {sdkError && <div className={styles.notice}>{sdkError}</div>}
               {error && <div className={styles.notice}>{error}</div>}
             </div>
           </section>
