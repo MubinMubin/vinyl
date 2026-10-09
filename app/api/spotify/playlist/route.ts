@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getGiftTrackNote } from '@/lib/server/gift-track-notes'
 
 const SPOTIFY_API = 'https://api.spotify.com/v1'
 const PLAYLIST_ID = process.env.SPOTIFY_PLAYLIST_ID
@@ -48,7 +49,6 @@ export async function GET(request: NextRequest) {
     }
 
     const playlist = await playlistResponse.json()
-
     const tracks: any[] = []
     let nextUrl: string | null =
       `${SPOTIFY_API}/playlists/${encodeURIComponent(PLAYLIST_ID)}/tracks?limit=100`
@@ -64,10 +64,12 @@ export async function GET(request: NextRequest) {
       }
 
       const page = await tracksResponse.json()
+
       for (const item of page.items || []) {
         const track = item?.track
         if (!track || track.type !== 'track' || !track.id) continue
 
+        const index = tracks.length
         tracks.push({
           id: track.id,
           uri: track.uri,
@@ -83,7 +85,8 @@ export async function GET(request: NextRequest) {
             name: track.album?.name,
             release_date: track.album?.release_date,
             images: track.album?.images || []
-          }
+          },
+          note: getGiftTrackNote(track.id, index)
         })
       }
 
