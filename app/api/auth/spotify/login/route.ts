@@ -11,12 +11,10 @@ function getRedirectUri(request: NextRequest) {
   )
 }
 
-// Request only the permissions this player actually uses.
+// Minimum scopes for the Web Playback SDK plus playback control.
 const SCOPES = [
   'user-read-playback-state',
   'user-modify-playback-state',
-  'user-read-currently-playing',
-  'user-read-recently-played',
   'user-read-email',
   'user-read-private',
   'streaming'
@@ -31,8 +29,6 @@ export async function GET(request: NextRequest) {
   }
 
   const redirectUri = getRedirectUri(request)
-
-  // Cryptographically secure anti-CSRF state.
   const state = randomBytes(32).toString('hex')
 
   const params = new URLSearchParams({
