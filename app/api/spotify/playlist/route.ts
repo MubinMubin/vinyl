@@ -30,20 +30,18 @@ export async function GET(request: NextRequest) {
 
   try {
     const playlistResponse = await fetch(
-      `${SPOTIFY_API}/playlists/${encodeURIComponent(PLAYLIST_ID)}?fields=id,name,description,images,uri,owner(display_name),tracks(total)`,
+      `${SPOTIFY_API}/playlists/${encodeURIComponent(PLAYLIST_ID)}?fields=id,name,description,images,uri,owner(display_name),items(total)`,
       { headers, cache: 'no-store' }
     )
 
-    if (playlistResponse.status === 401) {
-      return NextResponse.json(
-        { error: 'Token expired' },
-        { status: 401, headers: NO_STORE_HEADERS }
-      )
-    }
-
     if (!playlistResponse.ok) {
+      const spotifyBody = await playlistResponse.text().catch(() => '')
+      console.error('Spotify playlist metadata request failed', {
+        status: playlistResponse.status,
+        body: spotifyBody.slice(0, 500)
+      })
       return NextResponse.json(
-        { error: 'Could not load playlist' },
+        { error: 'Could not load playlist', spotifyStatus: playlistResponse.status },
         { status: playlistResponse.status, headers: NO_STORE_HEADERS }
       )
     }
@@ -51,22 +49,27 @@ export async function GET(request: NextRequest) {
     const playlist = await playlistResponse.json()
     const tracks: any[] = []
     let nextUrl: string | null =
-      `${SPOTIFY_API}/playlists/${encodeURIComponent(PLAYLIST_ID)}/tracks?limit=100`
+      `${SPOTIFY_API}/playlists/${encodeURIComponent(PLAYLIST_ID)}/items?limit=50`
 
     while (nextUrl) {
-      const tracksResponse = await fetch(nextUrl, { headers, cache: 'no-store' })
+      const itemsResponse = await fetch(nextUrl, { headers, cache: 'no-store' })
 
-      if (!tracksResponse.ok) {
+      if (!itemsResponse.ok) {
+        const spotifyBody = await itemsResponse.text().catch(() => '')
+        console.error('Spotify playlist items request failed', {
+          status: itemsResponse.status,
+          body: spotifyBody.slice(0, 500)
+        })
         return NextResponse.json(
-          { error: 'Could not load playlist tracks' },
-          { status: tracksResponse.status, headers: NO_STORE_HEADERS }
+          { error: 'Could not load playlist items', spotifyStatus: itemsResponse.status },
+          { status: itemsResponse.status, headers: NO_STORE_HEADERS }
         )
       }
 
-      const page = await tracksResponse.json()
+      const page = await itemsResponse.json()
 
-      for (const item of page.items || []) {
-        const track = item?.track
+      for (const playlistItem of page.items || []) {
+        const track = playlistItem?.item
         if (!track || track.type !== 'track' || !track.id) continue
 
         const index = tracks.length
